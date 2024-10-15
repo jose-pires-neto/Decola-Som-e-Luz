@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decola Som e Luz - Sistema de Gestão</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body>
+    <header>
+        <h1>Decola Som e Luz</h1>
+        <nav id="bottom-nav">
+            <ul>
+                <li><a href="#" id="equipamentos-link"><i class="fas fa-tools"></i><span>Equipamentos</span></a></li>
+                <li><a href="#" id="eventos-link"><i class="fas fa-calendar-alt"></i><span>Eventos</span></a></li>
+                <li><a href="#" id="relatorios-link"><i class="fas fa-chart-bar"></i><span>Relatórios</span></a></li>
+                <li><a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i><span>Sair</span></a></li>
+            </ul>
+        </nav>
+        <button id="logout-btn" style="display: none;">Sair</button>
+    </header>
+
+    <main>
+        <section id="login-section">
+            <h2>Login</h2>
+            <form id="login-form">
+                <input type="email" id="email" placeholder="E-mail" required>
+                <input type="password" id="password" placeholder="Senha" required>
+                <button type="submit">Entrar</button>
+            </form>
+        </section>
+
+        <section id="dashboard" style="display: none;">
+            <!-- Conteúdo do painel será carregado dinamicamente -->
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Decola Som e Luz. Todos os direitos reservados.</p>
+    </footer>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <!-- Arquivos JavaScript da aplicação -->
+    <script src="auth.js"></script>
+    <script src="equipamentos.js"></script>
+    <script src="eventos.js"></script>
+    <script src="relatorios.js"></script>
+    <script src="app.js"></script>
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+      
+        // Your web app's Firebase configuration
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+          apiKey: "AIzaSyCw5A0MD1tIPrb4lQuat1XtrpwVxLA4r5g",
+          authDomain: "decola-som-e-luz.firebaseapp.com",
+          projectId: "decola-som-e-luz",
+          storageBucket: "decola-som-e-luz.appspot.com",
+          messagingSenderId: "67294891768",
+          appId: "1:67294891768:web:ea9e5e9c425acc7c68350d",
+          measurementId: "G-0LQEC44GTF"
+        };
+      
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+      </script>
+</body>
+</html>
