@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
         messagingSenderId: "67294891768",
         appId: "1:67294891768:web:ea9e5e9c425acc7c68350d",
         measurementId: "G-0LQEC44GTF"
-      };
+    };
 
     // Inicialize o Firebase
     firebase.initializeApp(firebaseConfig);
@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     eventosLink.addEventListener('click', (e) => {
         e.preventDefault();
-        loadEventos(db);
+        carregarEventos(); // Alterado de loadEventos para carregarEventos
     });
 
     relatoriosLink.addEventListener('click', (e) => {
@@ -67,5 +67,5 @@ document.addEventListener('DOMContentLoaded', () => {
         // Adicione aqui um resumo geral ou as principais funcionalidades
     }
 
-    // As funções loadEquipamentos, loadEventos e loadRelatorios serão definidas nos seus respectivos arquivos
+    // As funções loadEquipamentos e loadRelatorios serão definidas nos seus respectivos arquivos
 });

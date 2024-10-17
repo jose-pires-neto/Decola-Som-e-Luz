@@ -1,4 +1,8 @@
 // equipamentos.js
+let currentPage = 1;
+const itemsPerPage = 10;
+let currentFilter = '';
+
 function getDb() {
     return firebase.firestore();
 }
@@ -6,41 +10,70 @@ function getDb() {
 function loadEquipamentos() {
     const equipamentosRef = getDb().collection('equipamentos');
     
-    equipamentosRef.get().then((querySnapshot) => {
-        let equipamentosHTML = '<h2>Equipamentos</h2>';
-        equipamentosHTML += '<button onclick="showAddEquipamentoForm()">Adicionar Equipamento</button>';
-        equipamentosHTML += '<table><tr><th>ID</th><th>Nome</th><th>Categoria</th><th>Quantidade</th><th>Status</th><th>Ações</th></tr>';
-        
+    let query = equipamentosRef;
+    if (currentFilter) {
+        query = query.where('categoria', '==', currentFilter);
+    }
+    
+    query.get().then((querySnapshot) => {
+        const equipamentos = [];
         querySnapshot.forEach((doc) => {
-            const equipamento = doc.data();
+            equipamentos.push(doc.data());
+        });
+        
+        const categorias = [...new Set(equipamentos.map(e => e.categoria))];
+        const totalPages = Math.ceil(equipamentos.length / itemsPerPage);
+        
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const paginatedEquipamentos = equipamentos.slice(startIndex, endIndex);
+        
+        let equipamentosHTML = `
+            <h2>Equipamentos</h2>
+            <button onclick="showAddEquipamentoForm()">Adicionar Equipamento</button>
+            <div class="filter-container">
+                <select id="categoria-filter" onchange="filterEquipamentos()">
+                    <option value="">Todas as Categorias</option>
+                    ${categorias.map(c => `<option value="${c}">${c}</option>`).join('')}
+                </select>
+            </div>
+            <div class="equipamentos-grid">
+        `;
+        
+        paginatedEquipamentos.forEach((equipamento) => {
             equipamentosHTML += `
-                <tr>
-                    <td>${equipamento.id}</td>
-                    <td>${equipamento.nome}</td>
-                    <td>${equipamento.categoria}</td>
-                    <td>${equipamento.quantidade}</td>
-                    <td>${equipamento.status}</td>
-                    <td>
-                        <button onclick="editEquipamento('${doc.id}')">Editar</button>
-                        <button onclick="deleteEquipamento('${doc.id}')">Excluir</button>
-                    </td>
-                </tr>
+                <div class="equipamento-card">
+                    <h3>${equipamento.nome}</h3>
+                    <p><strong>ID:</strong> ${equipamento.id}</p>
+                    <p><strong>Categoria:</strong> ${equipamento.categoria}</p>
+                    <p><strong>Status:</strong> ${equipamento.status}</p>
+                    <div class="card-actions">
+                        <button onclick="editEquipamento('${equipamento.id}')">Editar</button>
+                        <button onclick="deleteEquipamento('${equipamento.id}')">Excluir</button>
+                    </div>
+                </div>
             `;
         });
         
-        equipamentosHTML += '</table>';
+        equipamentosHTML += `
+            </div>
+            <div class="pagination">
+                ${generatePaginationControls(totalPages)}
+            </div>
+        `;
+        
         dashboard.innerHTML = equipamentosHTML;
     });
 }
+
 
 function showAddEquipamentoForm() {
     const formHTML = `
         <h3>Adicionar Equipamento</h3>
         <form id="add-equipamento-form">
-            <input type="text" id="id" placeholder="ID Único" required>
             <input type="text" id="nome" placeholder="Nome" required>
             <input type="text" id="categoria" placeholder="Categoria" required>
-            <input type="number" id="quantidade" placeholder="Quantidade" required>
+            <input type="number" id="quantidade" placeholder="Quantidade" required min="1">
             <select id="status" required>
                 <option value="disponível">Disponível</option>
                 <option value="em uso">Em Uso</option>
@@ -56,23 +89,51 @@ function showAddEquipamentoForm() {
 
 function addEquipamento(e) {
     e.preventDefault();
-    const id = document.getElementById('id').value;
     const nome = document.getElementById('nome').value;
     const categoria = document.getElementById('categoria').value;
     const quantidade = parseInt(document.getElementById('quantidade').value);
     const status = document.getElementById('status').value;
     
-    getDb().collection('equipamentos').doc(id).set({
-        id: id,
-        nome: nome,
-        categoria: categoria,
-        quantidade: quantidade,
-        status: status
-    }).then(() => {
-        loadEquipamentos();
-    }).catch((error) => {
-        console.error("Erro ao adicionar equipamento: ", error);
-    });
+    // Gerar um timestamp único para este lote de equipamentos
+    const timestamp = Date.now();
+
+    // Criar novos equipamentos
+    const batch = getDb().batch();
+    const promises = [];
+
+    for (let i = 1; i <= quantidade; i++) {
+        const newId = `${categoria}-${timestamp}-${String(i).padStart(3, '0')}`;
+        const docRef = getDb().collection('equipamentos').doc(newId);
+        batch.set(docRef, {
+            id: newId,
+            nome: nome,
+            categoria: categoria,
+            status: status,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Adicionar uma promessa para verificar se o documento já existe
+        promises.push(docRef.get());
+    }
+
+    // Verificar se algum dos documentos já existe
+    Promise.all(promises)
+        .then((docs) => {
+            const alreadyExists = docs.some(doc => doc.exists);
+            if (alreadyExists) {
+                throw new Error('Alguns IDs gerados já existem. Por favor, tente novamente.');
+            }
+            // Se nenhum documento existe, podemos prosseguir com o commit do batch
+            return batch.commit();
+        })
+        .then(() => {
+            alert(`${quantidade} ${nome}(s) adicionado(s) com sucesso!`);
+            loadEquipamentos();
+        })
+        .catch((error) => {
+            console.error("Erro ao adicionar equipamentos: ", error);
+            alert('Erro ao adicionar equipamentos: ' + error.message);
+        });
 }
 
 function editEquipamento(id) {
@@ -83,17 +144,30 @@ function editEquipamento(id) {
             const equipamento = doc.data();
             const formHTML = `
                 <h3>Editar Equipamento</h3>
-                <form id="edit-equipamento-form">
-                    <input type="text" id="edit-id" value="${equipamento.id}" readonly>
-                    <input type="text" id="edit-nome" value="${equipamento.nome}" required>
-                    <input type="text" id="edit-categoria" value="${equipamento.categoria}" required>
-                    <input type="number" id="edit-quantidade" value="${equipamento.quantidade}" required>
-                    <select id="edit-status" required>
-                        <option value="disponível" ${equipamento.status === 'disponível' ? 'selected' : ''}>Disponível</option>
-                        <option value="em uso" ${equipamento.status === 'em uso' ? 'selected' : ''}>Em Uso</option>
-                        <option value="manutenção" ${equipamento.status === 'manutenção' ? 'selected' : ''}>Manutenção</option>
-                    </select>
-                    <button type="submit">Atualizar</button>
+                <form id="edit-equipamento-form" class="formulario-equipamento">
+                    <div class="form-group">
+                        <label for="edit-id">ID do Equipamento</label>
+                        <input type="text" id="edit-id" value="${equipamento.id}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-nome">Nome</label>
+                        <input type="text" id="edit-nome" value="${equipamento.nome}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-categoria">Categoria</label>
+                        <input type="text" id="edit-categoria" value="${equipamento.categoria}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-status">Status</label>
+                        <select id="edit-status" required>
+                            <option value="disponível" ${equipamento.status === 'disponível' ? 'selected' : ''}>Disponível</option>
+                            <option value="em uso" ${equipamento.status === 'em uso' ? 'selected' : ''}>Em Uso</option>
+                            <option value="manutenção" ${equipamento.status === 'manutenção' ? 'selected' : ''}>Manutenção</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn-principal">Atualizar</button>
+                    </div>
                 </form>
             `;
             dashboard.innerHTML = formHTML;
@@ -104,7 +178,6 @@ function editEquipamento(id) {
                     id: document.getElementById('edit-id').value,
                     nome: document.getElementById('edit-nome').value,
                     categoria: document.getElementById('edit-categoria').value,
-                    quantidade: parseInt(document.getElementById('edit-quantidade').value),
                     status: document.getElementById('edit-status').value
                 };
                 
@@ -135,4 +208,25 @@ function deleteEquipamento(id) {
             console.error("Erro ao excluir equipamento: ", error);
         });
     }
+}
+
+
+
+function generatePaginationControls(totalPages) {
+    let controls = '';
+    for (let i = 1; i <= totalPages; i++) {
+        controls += `<button onclick="changePage(${i})" ${i === currentPage ? 'class="active"' : ''}>${i}</button>`;
+    }
+    return controls;
+}
+
+function changePage(page) {
+    currentPage = page;
+    loadEquipamentos();
+}
+
+function filterEquipamentos() {
+    currentFilter = document.getElementById('categoria-filter').value;
+    currentPage = 1;
+    loadEquipamentos();
 }
