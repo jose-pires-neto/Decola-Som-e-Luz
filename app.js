@@ -53,7 +53,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     eventosLink.addEventListener('click', (e) => {
         e.preventDefault();
-        carregarEventos(); // Alterado de loadEventos para carregarEventos
+        if (typeof carregarEventos === 'function') {
+            carregarEventos();
+        } else {
+            console.error('A função carregarEventos não está definida.');
+            alert('Erro ao carregar eventos. Por favor, recarregue a página e tente novamente.');
+        }
     });
 
     relatoriosLink.addEventListener('click', (e) => {
@@ -69,3 +74,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // As funções loadEquipamentos e loadRelatorios serão definidas nos seus respectivos arquivos
 });
+
+// Certifique-se de que a função carregarEventos esteja definida globalmente
+if (typeof window.carregarEventos !== 'function') {
+    window.carregarEventos = function() {
+        console.log('Função carregarEventos chamada');
+        // Implementação temporária
+        alert('Carregando eventos... Esta é uma implementação temporária.');
+    };
+}

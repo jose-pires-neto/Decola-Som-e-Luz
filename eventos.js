@@ -116,37 +116,61 @@ function mostrarFormularioAdicionarEvento() {
 
 function adicionarEvento(e) {
     e.preventDefault();
-    const nome = document.getElementById('nome').value;
-    const data = document.getElementById('data').value;
+    const nome = document.getElementById('nome').value.trim();
+    const data = document.getElementById('data').value.trim();
     const equipamentosSelect = document.getElementById('equipamentos');
     const equipamentos = Array.from(equipamentosSelect.selectedOptions).map(option => ({
         id: option.value,
-        nome: option.text.split(' - ')[1]
-    }));
+        nome: option.text
+    })).filter(eq => eq.id && eq.nome); // Filtra equipamentos inválidos
     
+    // Verifica se todos os campos obrigatórios estão preenchidos
+    if (!nome || !data || equipamentos.length === 0) {
+        mostrarMensagem("Por favor, preencha todos os campos obrigatórios.", 'erro');
+        return;
+    }
+
     const batch = getDb().batch();
     const eventoRef = getDb().collection(COLECAO_EVENTOS).doc();
     
-    batch.set(eventoRef, {
+    const eventoData = {
         nome: nome,
         data: data,
         equipamentos: equipamentos,
         status: STATUS_EM_ANDAMENTO
+    };
+
+    // Verifica se todos os campos em eventoData estão definidos
+    if (Object.values(eventoData).some(value => value === undefined)) {
+        mostrarMensagem("Erro: Alguns campos estão indefinidos. Por favor, verifique os dados e tente novamente.", 'erro');
+        return;
+    }
+
+    batch.set(eventoRef, eventoData);
+
+    const equipamentosPromises = equipamentos.map(equipamento => {
+        if (equipamento.id) {
+            const equipamentoRef = getDb().collection(COLECAO_EQUIPAMENTOS).doc(equipamento.id);
+            return equipamentoRef.get().then(doc => {
+                if (doc.exists) {
+                    batch.update(equipamentoRef, {status: STATUS_EM_USO});
+                } else {
+                    throw new Error(`Equipamento com ID ${equipamento.id} não encontrado.`);
+                }
+            });
+        }
+        return Promise.resolve();
     });
 
-    equipamentos.forEach((equipamento) => {
-        const equipamentoRef = getDb().collection(COLECAO_EQUIPAMENTOS).doc(equipamento.id);
-        batch.update(equipamentoRef, {status: STATUS_EM_USO});
-    });
-
-    batch.commit()
+    Promise.all(equipamentosPromises)
+        .then(() => batch.commit())
         .then(() => {
             mostrarMensagem("Evento adicionado com sucesso!", 'sucesso');
             carregarEventos();
         })
         .catch((error) => {
             console.error("Erro ao adicionar evento: ", error);
-            mostrarMensagem("Erro ao adicionar evento. Por favor, tente novamente.", 'erro');
+            mostrarMensagem(`Erro ao adicionar evento: ${error.message}. Por favor, tente novamente.`, 'erro');
         });
 }
 
